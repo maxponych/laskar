@@ -1,0 +1,11 @@
+*.bin
+*.elf
+*.o
+os.img
+os.vdi
+libk.a
+bpb.bin
+stage1_patched.bin
+kernel/src/*.o
+libk/src/*.o
+drivers/src/*.o
