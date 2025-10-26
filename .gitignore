@@ -7,5 +7,8 @@ libk.a
 bpb.bin
 stage1_patched.bin
 kernel/src/*.o
+kernel/src/keyboard/*.o
 libk/src/*.o
 drivers/src/*.o
+compile_commands.json
+.cache

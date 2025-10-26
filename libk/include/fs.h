@@ -1,5 +1,6 @@
 #pragma once
 #include "pio.h"
+#include "print.h"
 #include "types.h"
 
 typedef struct {
@@ -9,11 +10,9 @@ typedef struct {
   u8 NumFATs;
   u32 FATSz32;
   u32 RootClus;
-  u32 FATStartSector;
+  u32 FAT1StartSector;
+  u32 FAT2StartSector;
   u32 DataStartSector;
-  u32 RootDirSector;
-  u64 DataStartOffset;
-  u64 RootDirBytsOffset;
 } FileSystem;
 
 typedef struct {
@@ -31,9 +30,8 @@ typedef struct {
   u32 FileSize;
 } DirEntry;
 
-u32 cluster_to_sector(u32 cluster);
-u32 get_next_cluster(u32 cluster);
-u32 fs_get_file_cluster(DirEntry *entry);
 void fs_init();
-DirEntry *fs_find_file(const char *filename);
-void fs_read_file(u32 first_cluster, u32 file_size, u8 *buffer);
+DirEntry *fs_find_file(const char *filename, u32 dir);
+u8 fs_list(u32 dir, char *found, u8 max_entries);
+void fs_read_file(DirEntry *file, u8 *buff);
+void fs_write_file(u32 size, const char *name, u8 *buff, u8 dir, u32 in_dir);

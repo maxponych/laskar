@@ -1,14 +1,16 @@
 [BITS 16]
 [ORG 0x1000]
 
-page_table_l4 equ 0x30000
-page_table_l3 equ 0x31000
-page_table_l2 equ 0x32000
-stack32_top equ 0x40000
-stack64_top equ 0x50000
+stack32_top equ 0x20000
+stack64_top equ 0x60000
 
 start:
   cli
+  xor ax, ax
+  mov ds, ax
+  mov es, ax
+  mov ss, ax
+  mov sp, 0x7C00
 
   lgdt [gdt32_descriptor]
 
@@ -79,17 +81,16 @@ setup_page_tables:
 
 [BITS 64]
 lm_start:
-  mov ax, 0x10
+  mov ax, 0
   mov ds, ax
   mov es, ax
   mov fs, ax
   mov gs, ax
   mov ss, ax
-  and rsp, 0xFFFFFFFFFFFFFFF0
   mov rsp, stack64_top
-  add rsp, -16
+  and rsp, -16
 
-  mov rax, 0x0000000000008000
+  mov rax, 0x8000
   jmp rax
 
 section .data
@@ -106,9 +107,18 @@ gdt32_descriptor:
 
 gdt64_start:
   dq 0
-  dq 0x00209A0000000000
-  dq 0x00CF92000000FFFF
+  dq 0x0020980000000000
 gdt64_end:
 gdt64_descriptor:
   dw gdt64_end - gdt64_start - 1
   dq gdt64_start
+
+section .bss
+align 4096
+page_table_l4:
+  resb 4096
+page_table_l3:
+  resb 4096
+page_table_l2:
+  resb 4096
+

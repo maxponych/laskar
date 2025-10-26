@@ -32,7 +32,7 @@ start:
   jc load_failed
 
   mov ah, 0x02
-  mov al, 4
+  mov al, 20
   mov ch, 0x00
   mov cl, 9
   mov dh, 0x00

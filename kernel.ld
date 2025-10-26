@@ -5,6 +5,13 @@ SECTIONS
 {
     . = 0x20000;
 
+    .text.start : 
+    { 
+        KEEP(
+            *(.text.start)
+        ) 
+    }
+
     .text : {
         *(.text)
     }
