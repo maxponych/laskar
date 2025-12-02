@@ -19,7 +19,7 @@ void greet() {
   set_color(0x0000FF00, 0x00000000);
   println("<<    Welcome back to laskar    >>");
   set_color(0x00FFFFFF, 0x00000000);
-  /* clear_screen(); */
+  clear_screen();
 }
 
 void print_prompt() {
@@ -45,8 +45,9 @@ void kmain(BootArgs *boot) {
 
   greet();
 
-  char comm_buff[128];
-  u8 comm_buff_cnt = 0;
+  char *comm_buff = kmalloc(128);
+  u32 comm_cap = 128;
+  u32 comm_buff_cnt = 0;
   print_prompt();
   while (1) {
     u8 in = kb_read();
@@ -63,10 +64,6 @@ void kmain(BootArgs *boot) {
 
         cmd_parse(comm_buff, &comm_buff_cnt);
 
-        for (u8 i = 0; i < 128; i++) {
-          comm_buff[i] = 0;
-        }
-
         comm_buff_cnt = 0;
         print_prompt();
         continue;
@@ -78,10 +75,21 @@ void kmain(BootArgs *boot) {
         }
         continue;
       }
-      if (comm_buff_cnt < 127) {
-        comm_buff[comm_buff_cnt++] = c;
-        printc(c);
+      if (comm_buff_cnt + 4 >= comm_cap) {
+        u32 new_cap = comm_cap * 1;
+        char *new_buff = kmalloc(new_cap);
+
+        for (u32 i = 0; i < comm_cap; i++) {
+          new_buff[i] = comm_buff[i];
+        }
+
+        kfree(comm_buff);
+        comm_buff = new_buff;
+        comm_cap = new_cap;
       }
+
+      comm_buff[comm_buff_cnt++] = c;
+      printc(c);
     }
   }
 }

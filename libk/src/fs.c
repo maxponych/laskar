@@ -1,7 +1,5 @@
-// NOTE: Buffer overflow hazard!
-// TODO: Rewrite after dynamic allocator
-
 #include "fs.h"
+#include "heap.h"
 
 FileSystem fs;
 
@@ -23,7 +21,7 @@ u32 get_next_clus(u32 clus) {
 void read_clus(u32 clus, u8 *buff) {
   u32 sector = clus_to_sec(clus);
   for (u8 i = 0; i < fs.SecPerClus; i++) {
-    read_sector(sector + i, buff);
+    read_sector(sector + i, buff + (i * fs.BytsPerSec));
   }
 }
 
@@ -44,8 +42,7 @@ u32 alloc_clus(u32 size, u8 dir) {
                  (fs.BytsPerSec * fs.SecPerClus);
   if (dir && clusters == 0)
     clusters = 1;
-  u64 pages = (clusters * sizeof(u32) + 4095) / 4096;
-  u32 *freeClus = (u32 *)alloc_pages(pages);
+  u32 *freeClus = (u32 *)kmalloc(clusters * sizeof(FreeBlock));
   u64 freeClusCnt = 0;
   for (u32 i = 0; i < fs.FATSz32 && clusters > 0; i++) {
     read_sector(fs.FAT1StartSector + i, buff);
@@ -70,10 +67,12 @@ u32 alloc_clus(u32 size, u8 dir) {
   }
 
   u32 free = freeClus[0];
-  free_pages(freeClus, pages);
+  kfree(freeClus);
 
   return free;
 }
+
+u64 get_clus_size() { return fs.SecPerClus * fs.BytsPerSec; }
 
 void write_clus_data(u32 cluster, u32 size, u8 *buff) {
   u32 offsetByts = 0;

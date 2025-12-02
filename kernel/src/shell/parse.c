@@ -14,7 +14,7 @@ Command commands[] = {{"ls", cmd_ls},
                       {"free", cmd_free},
                       {NULL, NULL}};
 
-void cmd_parse(char *cmd_buff, u8 *buff_cnt) {
+void cmd_parse(char *cmd_buff, u32 *buff_cnt) {
   char *cmd = cmd_buff;
   char *args = 0;
   u8 is_args = 0;

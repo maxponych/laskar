@@ -38,8 +38,8 @@ void parse(char *args, char *content, char *name, u8 *write, u32 *bytes) {
 }
 
 void cmd_echo(char *args) {
-  char content[128];
-  char name[13];
+  static char content[128];
+  static char name[13];
   u8 write = 0;
   u32 bytes = 0;
 

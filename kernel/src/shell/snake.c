@@ -1,7 +1,6 @@
-#include "print.h"
 #include "shell.h"
 
-u8 size[2] = {40, 40};
+u8 size[2] = {20, 20};
 u8 x_middle;
 u8 y_middle;
 
@@ -10,9 +9,16 @@ u8 right_border;
 u8 bottom_border;
 u8 top_border;
 u32 color = 0x00FF55FF;
-u16 tick = 1000;
+u16 tick = 1500;
+
+u32 snake_capacity = 128;
+u8 (*snake)[2] = 0;
+u32 snake_length = 8;
+u8 end = 0;
+u8 apple[2] = {0};
 
 void init_globals() {
+  snake = kmalloc(snake_capacity * sizeof(u8[2]));
   x_middle = (screen_width() / 16) / 2;
   y_middle = (screen_height() / 16) / 2;
 
@@ -22,10 +28,19 @@ void init_globals() {
   top_border = y_middle + (size[1] / 2);
 }
 
-static u8 snake[256][2];
-u8 snake_length = 8;
-u8 end = 0;
-u8 apple[2] = {0};
+void grow_capacity() {
+  u32 new_capacity = snake_capacity * 2;
+  u8(*new_snake)[2] = kmalloc(new_capacity * sizeof(u8[2]));
+
+  for (u32 i = 0; i < snake_capacity; i++) {
+    new_snake[i][0] = snake[i][0];
+    new_snake[i][1] = snake[i][1];
+  }
+
+  kfree(snake);
+  snake_capacity = new_capacity;
+  snake = new_snake;
+}
 
 u16 random() {
   static u16 seed = 0;
@@ -79,12 +94,10 @@ void clear_map() {
 }
 
 void update_snake(char move, char prev) {
-  for (u8 i = snake_length - 1; i > 0; i--) {
+  for (u32 i = snake_length - 1; i > 0; i--) {
     snake[i][0] = snake[i - 1][0];
     snake[i][1] = snake[i - 1][1];
   }
-  snake[snake_length][0] = 0;
-  snake[snake_length][1] = 0;
 
   if (move == 'w' || move == 'W') {
     snake[0][1] = snake[0][1] - 1;
@@ -155,10 +168,18 @@ void cmd_snake(char *args) {
     u8 scancode = kb_read();
     char key = game_translate(scancode);
     putnum(snake_length, 0, 0, 0x0000AAAA);
-    if (snake_length == 255) {
+
+    if (snake_length == (size[0] - 2) * (size[1] - 2)) {
+      kfree(snake);
       clear_screen();
-      println("You win! You've reached the max score of 255!");
+      set_color(0x0000FF00, 0x00000000);
+      println("You won!");
+      set_color(0x00FFFFFF, 0x00000000);
       return;
+    }
+
+    if (snake_length + 2 >= snake_capacity) {
+      grow_capacity();
     }
 
     if (key > 0) {
@@ -190,6 +211,7 @@ void cmd_snake(char *args) {
     }
   }
   end = 0;
+  kfree(snake);
   clear_screen();
   print("Your score is: ");
   printnum(snake_length);

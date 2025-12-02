@@ -1,6 +1,6 @@
 #pragma once
+#include "heap.h"
 #include "pio.h"
-#include "pmm.h"
 #include "print.h"
 #include "types.h"
 
@@ -32,6 +32,7 @@ typedef struct {
 } DirEntry;
 
 void fs_init(void);
+u64 get_clus_size();
 u32 get_next_clus(u32 clus);
 void read_clus(u32 clus, u8 *buff);
 DirEntry *fs_find_file(const char *filename, u32 dir);

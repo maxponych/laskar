@@ -1,7 +1,7 @@
 #include "shell.h"
 
 void cmd_cd(char *args) {
-  char name[11];
+  static char name[11];
   str_to_fat83(args, name);
   DirEntry *new_dir = fs_find_file(name, current_dir);
   if (new_dir)

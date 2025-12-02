@@ -16,7 +16,7 @@ typedef struct {
 
 extern u32 current_dir;
 
-void cmd_parse(char *cmd_buff, u8 *buff_cnt);
+void cmd_parse(char *cmd_buff, u32 *buff_cnt);
 void cmd_loadkeys(char *args);
 void cmd_echo(char *args);
 void cmd_cat(char *args);
