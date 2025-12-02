@@ -44,8 +44,9 @@ u32 alloc_clus(u32 size, u8 dir) {
                  (fs.BytsPerSec * fs.SecPerClus);
   if (dir && clusters == 0)
     clusters = 1;
-  u32 freeClus[256];
-  u8 freeClusCnt = 0;
+  u64 pages = (clusters * sizeof(u32) + 4095) / 4096;
+  u32 *freeClus = (u32 *)alloc_pages(pages);
+  u64 freeClusCnt = 0;
   for (u32 i = 0; i < fs.FATSz32 && clusters > 0; i++) {
     read_sector(fs.FAT1StartSector + i, buff);
     u32 *data = (u32 *)buff;
@@ -57,7 +58,7 @@ u32 alloc_clus(u32 size, u8 dir) {
     }
   }
   if (clusters > 0) {
-    println("Error: Not enough buffory");
+    println("Error: Not enough memory");
     return 0;
   }
   for (u8 i = 0; i < freeClusCnt; i++) {
@@ -68,7 +69,10 @@ u32 alloc_clus(u32 size, u8 dir) {
     }
   }
 
-  return freeClus[0];
+  u32 free = freeClus[0];
+  free_pages(freeClus, pages);
+
+  return free;
 }
 
 void write_clus_data(u32 cluster, u32 size, u8 *buff) {

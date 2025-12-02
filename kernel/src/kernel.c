@@ -34,6 +34,7 @@ void kmain(BootArgs *boot) {
   println("Laskar booting...");
 
   pmm_init(&boot->mem, boot->own_size);
+  heap_init();
   print_ok("Initialising Memory");
 
   fs_init();

@@ -7,3 +7,5 @@ void *alloc_page(void);
 void *alloc_pages(u32 count);
 void free_page(void *addr);
 void free_pages(void *addr, u32 count);
+
+void free_mem_stat();

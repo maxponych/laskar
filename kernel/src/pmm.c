@@ -3,6 +3,28 @@
 u8 *bitmap = NULL;
 u64 bitmap_size = 0;
 
+void print_gb(u64 bytes, const char *label) {
+  u64 gb = bytes / (1024ULL * 1024 * 1024);
+
+  u64 mb_total = bytes / (1024ULL * 1024);
+  u64 mb_frac = mb_total - gb * 1024;
+
+  u64 hundredths = (mb_frac * 100 + 512) / 1024;
+
+  if (hundredths == 100) {
+    gb += 1;
+    hundredths = 0;
+  }
+
+  print(label);
+  printnum(gb);
+  printc('.');
+  if (hundredths < 10)
+    printc('0');
+  printnum(hundredths);
+  print(" GB\n");
+}
+
 void mark_used(u8 *bitmap, u64 page_start, u64 page_end) {
   u64 start_byte = page_start / 8;
   u64 end_byte = page_end / 8;
@@ -90,31 +112,9 @@ void pmm_init(MemoryMap *mmap, u64 own_size) {
   u64 bitmap_end = ((u64)bitmap + bitmap_size - 1) / 4096;
   mark_used(bitmap, bitmap_start, bitmap_end);
 
-  u64 mem = 0;
+  u64 mem = bitmap_size * 8 * 4096;
 
-  for (u64 page = 0; page < total_pages; page++) {
-    u64 byte = page / 8;
-    u8 bit = page % 8;
-    if (((bitmap[byte] >> bit) & 1) == 0) {
-      mem += 4096;
-    }
-  }
-
-  u64 mb = mem / (1024 * 1024);
-  u64 gb = mb / 1024;
-  u64 rem_mb = mb % 1024;
-
-  u64 hundredths = (rem_mb * 100 + 512) / 1024;
-
-  u64 first_decimal = hundredths / 10;
-  u64 second_decimal = hundredths % 10;
-
-  print("Free memory: ");
-  printnum(gb);
-  printc('.');
-  printnum(first_decimal);
-  printnum(second_decimal);
-  print("GB\n");
+  print_gb(mem, "Total memory: ");
 }
 
 void *alloc_page() {
@@ -185,4 +185,19 @@ void free_pages(void *addr, u32 count) {
 
     bitmap[byte] &= ~(1 << bit);
   }
+}
+
+void free_mem_stat() {
+  u64 total_mem = bitmap_size * 8 * 4096;
+  u64 free_mem = 0;
+  for (u64 page = 0; page < bitmap_size * 8; page++) {
+    u64 byte = page / 8;
+    u8 bit = page % 8;
+    if (((bitmap[byte] >> bit) & 1) == 0) {
+      free_mem += 4096;
+    }
+  }
+
+  print_gb(total_mem, "Total memory: ");
+  print_gb(free_mem, "Free memory:  ");
 }

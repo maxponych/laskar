@@ -11,6 +11,7 @@ Command commands[] = {{"ls", cmd_ls},
                       {"rm", cmd_rm},
                       {"clear", cmd_clear},
                       {"snake", cmd_snake},
+                      {"free", cmd_free},
                       {NULL, NULL}};
 
 void cmd_parse(char *cmd_buff, u8 *buff_cnt) {
