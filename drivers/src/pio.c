@@ -1,9 +1,9 @@
 #include "pio.h"
 
-u8 *read_sector(u32 lba) {
+void read_sector(u32 lba, u8 *buff) {
   if (lba >= (1UL << 28)) {
     println("Bad LBA");
-    return 0;
+    return;
   }
 
   u8 status;
@@ -25,20 +25,19 @@ u8 *read_sector(u32 lba) {
 
   if (status & 0x01) {
     println("ATA ERR");
-    return 0;
+    return;
   }
 
   if (!(status & 0x08)) {
     println("ATA NO DRQ");
-    return 0;
+    return;
   }
 
-  static u16 words[256];
   for (u16 i = 0; i < 256; i++) {
-    words[i] = inw(0x1F0);
+    u16 word = inw(0x1F0);
+    buff[i * 2] = word & 0xFF;
+    buff[i * 2 + 1] = (word >> 8) & 0xFF;
   }
-  u8 *buff = (u8 *)words;
-  return buff;
 }
 
 void write_sector(u32 lba, u8 *buffer) {

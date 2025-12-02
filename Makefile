@@ -14,9 +14,6 @@ RM         := rm -f
 # If you want to use release build for the bootloader set BUILD=release
 BUILD      ?= release
 
-# Path to OVMF (change if different on your distro)
-OVMF_CODE = /nix/store/p0aqkqk7ivc6z0anf3bxqg01zzbapv5g-qemu-9.2.4/share/qemu/edk2-x86_64-code.fd
-
 # === Directories ===
 BOOT_DIR        := bootloader
 KERNEL_SRC_DIR  := kernel/src
@@ -114,14 +111,6 @@ endif
 # --- Utilities ---
 rebuild: clean all
 
-mount-info:
-	@echo "Image: $(IMG)"
-	@echo "EFI file expected at: EFI/BOOT/BOOTX64.EFI (from $(BOOT_EFI))"
-	@echo "To mount manually (as root):"
-	@echo "  sudo losetup --show -f $(IMG)    # get loop device"
-	@echo "  sudo partprobe /dev/loopX"
-	@echo "  sudo mount -o loop $(IMG) /mnt"
-
 clean:
 	$(RM) $(IMG) $(KERNEL_BIN) $(KERNEL_ELF) $(LIBK) $(LIBK_OBJ) $(KERNEL_OBJ) $(DRIVERS_OBJ)
 	# Don't wipe cargo artifacts; if you want, run 'cargo clean' in bootloader/
@@ -133,3 +122,8 @@ c-only: $(KERNEL_BIN)
 # ensure libk is built when C files changed
 $(KERNEL_BIN): $(LIBK)
 
+compile_commands:
+	@echo ">>> Generating compile_commands.json with bear"
+	$(RM) compile_commands.json
+	bear -- $(MAKE) c-only
+	@echo ">>> compile_commands.json generated"

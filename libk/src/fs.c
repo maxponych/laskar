@@ -5,6 +5,8 @@
 
 FileSystem fs;
 
+static u8 buff[512];
+
 u32 clus_to_sec(u32 clus) {
   return fs.DataStartSector + ((clus - 2) * fs.SecPerClus);
 }
@@ -13,21 +15,28 @@ u32 get_next_clus(u32 clus) {
   u32 clusBytsOff = clus * 4;
   u32 clusSecOff = clusBytsOff / fs.BytsPerSec;
   u32 secBytsOff = clusBytsOff % fs.BytsPerSec;
-  u8 *buff = read_sector(fs.FAT1StartSector + clusSecOff);
+  read_sector(fs.FAT1StartSector + clusSecOff, buff);
   u32 *fat = (u32 *)buff;
   return fat[secBytsOff / 4] & 0x0FFFFFFF;
+}
+
+void read_clus(u32 clus, u8 *buff) {
+  u32 sector = clus_to_sec(clus);
+  for (u8 i = 0; i < fs.SecPerClus; i++) {
+    read_sector(sector + i, buff);
+  }
 }
 
 void write_fat(u32 clus, u32 value) {
   u32 clusBytsOff = clus * 4;
   u32 clusSecOff = clusBytsOff / fs.BytsPerSec;
   u32 secBytsOff = clusBytsOff % fs.BytsPerSec;
-  u8 *sector = read_sector(fs.FAT1StartSector + clusSecOff);
-  u32 *fat = (u32 *)&sector[secBytsOff];
+  read_sector(fs.FAT1StartSector + clusSecOff, buff);
+  u32 *fat = (u32 *)&buff[secBytsOff];
   u32 old = *fat;
   *fat = (old & 0xF0000000) | (value & 0x0FFFFFFF);
-  write_sector(fs.FAT1StartSector + clusSecOff, sector);
-  write_sector(fs.FAT2StartSector + clusSecOff, sector);
+  write_sector(fs.FAT1StartSector + clusSecOff, buff);
+  write_sector(fs.FAT2StartSector + clusSecOff, buff);
 }
 
 u32 alloc_clus(u32 size, u8 dir) {
@@ -38,7 +47,7 @@ u32 alloc_clus(u32 size, u8 dir) {
   u32 freeClus[256];
   u8 freeClusCnt = 0;
   for (u32 i = 0; i < fs.FATSz32 && clusters > 0; i++) {
-    u8 *buff = read_sector(fs.FAT1StartSector + i);
+    read_sector(fs.FAT1StartSector + i, buff);
     u32 *data = (u32 *)buff;
     for (u32 x = 0; x < (fs.BytsPerSec / 4) && clusters > 0; x++) {
       if (data[x] == 0x00000000 && (x > 1 || i > 0)) {
@@ -48,7 +57,7 @@ u32 alloc_clus(u32 size, u8 dir) {
     }
   }
   if (clusters > 0) {
-    println("Error: Not enough memory");
+    println("Error: Not enough buffory");
     return 0;
   }
   for (u8 i = 0; i < freeClusCnt; i++) {
@@ -94,9 +103,9 @@ DirEntry *create_dir_entry(const char *name, u32 size, u32 firstClus, u8 dir,
   u8 found = 0;
   while (cluster > 1 && cluster < 0x0FFFFFF8 && !found) {
     for (u32 i = 0; i < fs.SecPerClus && !found; i++) {
-      u8 *data = read_sector(clus_to_sec(cluster) + i);
+      read_sector(clus_to_sec(cluster) + i, buff);
       for (u8 x = 0; x < 16 && !found; x++) {
-        DirEntry *entry = (DirEntry *)(data + x * 32);
+        DirEntry *entry = (DirEntry *)(buff + x * 32);
         if (entry->Name[0] == 0x00) {
           found = 1;
           for (u8 y = 0; y < 11; y++) {
@@ -117,7 +126,7 @@ DirEntry *create_dir_entry(const char *name, u32 size, u32 firstClus, u8 dir,
           entry->FstClusHi = (firstClus >> 16) & 0xFFFF;
           entry->FstClusLo = firstClus & 0xFFFF;
           entry->FileSize = size;
-          write_sector(clus_to_sec(cluster) + i, data);
+          write_sector(clus_to_sec(cluster) + i, buff);
           return entry;
         }
       }
@@ -128,13 +137,14 @@ DirEntry *create_dir_entry(const char *name, u32 size, u32 firstClus, u8 dir,
 }
 
 void fs_init() {
-  u8 *mem = read_sector(0);
-  fs.BytsPerSec = mem[11] | (mem[12] << 8);
-  fs.SecPerClus = mem[13];
-  fs.RsvdSecCnt = mem[14] | (mem[15] << 8);
-  fs.NumFATs = mem[16];
-  fs.FATSz32 = mem[36] | (mem[37] << 8) | (mem[38] << 16) | (mem[39] << 24);
-  fs.RootClus = mem[44] | (mem[45] << 8) | (mem[46] << 16) | (mem[47] << 24);
+  read_sector(0, buff);
+  fs.BytsPerSec = buff[11] | (buff[12] << 8);
+  fs.SecPerClus = buff[13];
+  fs.RsvdSecCnt = buff[14] | (buff[15] << 8);
+  fs.NumFATs = buff[16];
+  fs.FATSz32 = buff[36] | (buff[37] << 8) | (buff[38] << 16) | (buff[39] << 24);
+  fs.RootClus =
+      buff[44] | (buff[45] << 8) | (buff[46] << 16) | (buff[47] << 24);
   fs.FAT1StartSector = fs.RsvdSecCnt;
   fs.FAT2StartSector = fs.FAT1StartSector + fs.FATSz32;
   fs.DataStartSector = fs.RsvdSecCnt + (fs.NumFATs * fs.FATSz32);
@@ -149,9 +159,9 @@ DirEntry *fs_find_file(const char *filename, u32 dir) {
   }
   while (cluster > 1 && cluster < 0x0FFFFFF8) {
     for (u32 i = 0; i < fs.SecPerClus; i++) {
-      u8 *data = read_sector(clus_to_sec(cluster) + i);
+      read_sector(clus_to_sec(cluster) + i, buff);
       for (u32 x = 0; x < 512 / sizeof(DirEntry); x++) {
-        DirEntry *entry = (DirEntry *)(data + x * 32);
+        DirEntry *entry = (DirEntry *)(buff + x * 32);
         if (entry->Attr & 0x08 || entry->Name[0] == 0x00 ||
             entry->Name[0] == 0xE5 || entry->Attr == 0x0F)
           continue;
@@ -172,14 +182,12 @@ DirEntry *fs_find_file(const char *filename, u32 dir) {
   return NULL;
 }
 
-void fs_read_file(DirEntry *file, u8 *buff) {
-  u32 cluster = file->FstClusLo | (file->FstClusHi << 16);
+void fs_read_file(u32 cluster, u32 size, u8 *dest) {
   u32 readCnt = 0;
-  u32 size = file->FileSize;
   while (cluster > 1 && cluster < 0x0FFFFFF8) {
     for (u32 i = 0; i < fs.SecPerClus; i++) {
       u32 bytsLeft = size - readCnt * fs.BytsPerSec;
-      u8 *data = read_sector(clus_to_sec(cluster) + i);
+      read_sector(clus_to_sec(cluster) + i, buff);
       u32 readByts = 0;
       if (bytsLeft > fs.BytsPerSec) {
         readByts = fs.BytsPerSec;
@@ -187,7 +195,7 @@ void fs_read_file(DirEntry *file, u8 *buff) {
         readByts = bytsLeft;
       }
       for (u16 x = 0; x < readByts; x++) {
-        buff[readCnt * fs.BytsPerSec + x] = data[x];
+        dest[readCnt * fs.BytsPerSec + x] = buff[x];
       }
       readCnt++;
     }
@@ -217,20 +225,21 @@ void fs_write_file(u32 size, const char *name, u8 *buff, u8 dir, u32 in_dir) {
   }
 }
 
-u8 fs_list(u32 dir, char *found, u8 max_entries) {
+u8 fs_list(u32 dir, char *found, u8 *modes, u8 max_entries) {
   u32 cluster = (dir == 0) ? fs.RootClus : dir;
   u8 foundCnt = 0;
   while (cluster > 1 && cluster < 0x0FFFFFF8 && foundCnt < max_entries) {
     for (u32 i = 0; i < fs.SecPerClus && foundCnt < max_entries; i++) {
-      u8 *data = read_sector(clus_to_sec(cluster) + i);
+      read_sector(clus_to_sec(cluster) + i, buff);
       for (u8 x = 0; x < 16 && foundCnt < max_entries; x++) {
-        DirEntry *entry = (DirEntry *)(data + x * 32);
+        DirEntry *entry = (DirEntry *)(buff + x * 32);
         if (entry->Attr & 0x08 || entry->Name[0] == 0x00 ||
             entry->Name[0] == 0xE5 || entry->Attr == 0x0F)
           continue;
         for (u8 j = 0; j < 11; j++) {
           found[foundCnt * 11 + j] = entry->Name[j];
         }
+        modes[foundCnt] = entry->Attr;
         foundCnt++;
       }
     }

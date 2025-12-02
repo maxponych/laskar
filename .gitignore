@@ -9,8 +9,6 @@ kernel/src/*.o
 libk/src/*.o
 drivers/src/*.o
 bootloader/target
-bootloader/flake.nix
-bootloader/flake.lock
 compile_commands.json
 .cache
 .denali.toml

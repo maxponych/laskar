@@ -30,8 +30,10 @@ typedef struct {
   u32 FileSize;
 } DirEntry;
 
-void fs_init();
+void fs_init(void);
+u32 get_next_clus(u32 clus);
+void read_clus(u32 clus, u8 *buff);
 DirEntry *fs_find_file(const char *filename, u32 dir);
-u8 fs_list(u32 dir, char *found, u8 max_entries);
-void fs_read_file(DirEntry *file, u8 *buff);
+u8 fs_list(u32 dir, char *found, u8 *modes, u8 max_entries);
+void fs_read_file(u32 cluster, u32 size, u8 *buff);
 void fs_write_file(u32 size, const char *name, u8 *buff, u8 dir, u32 in_dir);

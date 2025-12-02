@@ -1,13 +1,13 @@
 #![no_main]
 #![no_std]
 extern crate alloc;
-use core::time::Duration;
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use log::info;
 use uefi::{
-    boot::{MemoryType, ScopedProtocol},
+    boot::{memory_map, MemoryType, ScopedProtocol},
     fs::{FileSystem, FileSystemResult},
+    mem::memory_map::{MemoryMap, MemoryMapOwned},
     prelude::*,
     proto::{
         console::gop::{GraphicsOutput, PixelFormat},
@@ -21,7 +21,6 @@ use uefi::allocator::Allocator;
 #[global_allocator]
 static ALLOCATOR: Allocator = Allocator;
 
-#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct VBE {
     pub width: usize,
@@ -31,12 +30,78 @@ pub struct VBE {
     pub pixel_format: PixelFormat,
 }
 
+#[repr(C)]
+pub struct MemoryMapEntry {
+    pub base: u64,
+    pub length: u64,
+    pub ty: u32,
+}
+
+#[repr(C)]
+pub struct MemoryMapRaw {
+    pub entries: *const MemoryMapEntry,
+    pub entry_count: usize,
+}
+
+#[repr(C)]
+pub struct BootArgs {
+    pub vbe: VBE,
+    pub mem: MemoryMapRaw,
+    pub own_size: u64,
+}
+
+pub struct MMap {
+    pub boxed_entries: Box<[MemoryMapEntry]>,
+    pub raw_map: MemoryMapOwned,
+}
+
+impl MMap {
+    pub fn new() -> Result<Self> {
+        info!("Fetching memory map");
+        let raw_map = memory_map(MemoryType::LOADER_DATA)?;
+        info!("Mapping entries");
+        let mut vec: Vec<MemoryMapEntry> = Vec::new();
+        for desc in raw_map.entries() {
+            let mem_type = MemoryType(desc.ty.0);
+
+            match mem_type {
+                MemoryType::CONVENTIONAL
+                | MemoryType::BOOT_SERVICES_CODE
+                | MemoryType::BOOT_SERVICES_DATA
+                | MemoryType::LOADER_DATA
+                | MemoryType::LOADER_CODE => {
+                    vec.push(MemoryMapEntry {
+                        base: desc.phys_start,
+                        length: desc.page_count,
+                        ty: desc.ty.0 as u32,
+                    });
+                }
+                _ => {}
+            }
+        }
+
+        let boxed = vec.into_boxed_slice();
+        info!("Creating memory object");
+        Ok(MMap {
+            boxed_entries: boxed,
+            raw_map,
+        })
+    }
+
+    pub fn as_raw(&self) -> MemoryMapRaw {
+        MemoryMapRaw {
+            entries: self.boxed_entries.as_ptr(),
+            entry_count: self.boxed_entries.len(),
+        }
+    }
+}
+
 impl VBE {
     pub fn new() -> Result<Self> {
-        info!("Getting GOP handle...");
+        info!("Getting GOP handle");
         let gop_handle = uefi::boot::get_handle_for_protocol::<GraphicsOutput>()?;
 
-        info!("Opening GOP protocol...");
+        info!("Opening GOP protocol");
         let mut gop = unsafe {
             boot::open_protocol::<GraphicsOutput>(
                 boot::OpenProtocolParams {
@@ -48,13 +113,13 @@ impl VBE {
             )?
         };
 
-        info!("Getting mode info...");
+        info!("Getting mode info");
         let mode_info = gop.current_mode_info();
 
-        info!("Getting framebuffer...");
+        info!("Getting framebuffer");
         let fb = gop.frame_buffer().as_mut_ptr() as *mut u32;
 
-        info!("Getting pixel format...");
+        info!("Getting pixel format");
         let pixel_format = mode_info.pixel_format();
 
         let pitch_pixels = mode_info.stride();
@@ -87,17 +152,22 @@ fn main() -> Status {
     });
 
     info!("UEFI Bootloader started");
-    info!("Initializing graphics...");
+    info!("Initializing graphics");
     let vbe = VBE::new().unwrap();
     info!("GOP initialized: {}x{}", vbe.width, vbe.height);
 
-    info!("Loading kernel from /kernel.bin...");
+    info!("Getting memory info");
+    let mmap = MMap::new().unwrap();
+    let mem = mmap.as_raw();
+    info!("Memory info found! Entries found: {}", mem.entry_count);
+
+    info!("Loading kernel from /kernel.bin");
     let kernel_data = read_file("\\kernel.bin").unwrap();
     info!("Kernel loaded: {} bytes", kernel_data.len());
 
-    const KERNEL_BASE: u64 = 0x200000;
+    const KERNEL_BASE: u64 = 0x100000;
 
-    info!("Allocating memory at 0x{:X}...", KERNEL_BASE);
+    info!("Allocating memory at 0x{:X}", KERNEL_BASE);
     let page_count = (kernel_data.len() + 4095) / 4096;
     let kernel_addr = boot::allocate_pages(
         boot::AllocateType::Address(KERNEL_BASE),
@@ -107,24 +177,30 @@ fn main() -> Status {
     .expect("Failed to allocate memory for kernel");
     info!("Allocated {} pages", page_count);
 
-    info!("Copying kernel to memory...");
+    info!("Copying kernel to memory");
     let kernel_dest = unsafe {
         core::slice::from_raw_parts_mut(kernel_addr.as_ptr() as *mut u8, kernel_data.len())
     };
     kernel_dest.copy_from_slice(&kernel_data);
     info!("Kernel copied successfully");
 
-    info!("Exiting boot services in 2s");
-    boot::stall(Duration::from_secs(2));
+    let boot = BootArgs {
+        vbe,
+        mem,
+        own_size: kernel_data.len() as u64,
+    };
+
+    info!("Exiting boot services");
     unsafe {
         let _ = boot::exit_boot_services(Some(boot::MemoryType::LOADER_DATA));
     }
 
+    let boot_ptr = &boot as *const BootArgs;
     unsafe {
         core::arch::asm!(
             "call {entry}",
             entry = in(reg) kernel_addr.as_ptr(),
-            in("rdi") &vbe,
+            in("rdi") boot_ptr,
             options(noreturn)
         );
     }

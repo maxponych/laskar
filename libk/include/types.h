@@ -25,6 +25,23 @@ typedef struct {
   PixelFormat pixel_format;
 } VBE;
 
+typedef struct {
+  u64 base;
+  u64 page_count;
+  u32 type;
+} MemoryMapEntry;
+
+typedef struct {
+  MemoryMapEntry *entries;
+  u64 entry_count;
+} MemoryMap;
+
+typedef struct {
+  VBE vbe;
+  MemoryMap mem;
+  u64 own_size;
+} BootArgs;
+
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
