@@ -26,10 +26,6 @@ void cmd_cat(char *args) {
     clus = get_next_clus(clus);
   }
 
-  if (size == 0) {
-    printc('\n');
-  }
-
   kfree(buff);
   printc('\n');
 }
