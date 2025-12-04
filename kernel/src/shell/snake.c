@@ -1,6 +1,6 @@
 #include "shell.h"
 
-u8 size[2] = {20, 20};
+u8 size[2] = {40, 40};
 u8 x_middle;
 u8 y_middle;
 
@@ -9,7 +9,7 @@ u8 right_border;
 u8 bottom_border;
 u8 top_border;
 u32 color = 0x00FF55FF;
-u16 tick = 1500;
+u16 tick = 1000;
 
 u32 snake_capacity = 128;
 u8 (*snake)[2] = 0;
@@ -127,7 +127,7 @@ void update_snake(char move, char prev) {
     snake_length++;
   }
   fillc16x16(apple[0], apple[1], 0x00FF5555);
-  for (u8 i = 0; i < snake_length; i++) {
+  for (u32 i = 0; i < snake_length; i++) {
     fillc16x16(snake[i][0], snake[i][1], 0x0000AA00);
   }
 }

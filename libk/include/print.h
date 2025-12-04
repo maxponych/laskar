@@ -18,3 +18,4 @@ void println(const char *str);
 void printx(u8 val);
 void printxln(u8 val);
 void printnum(u64 n);
+void printlncount(const char *str, u64 count);

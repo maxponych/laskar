@@ -228,22 +228,44 @@ void fs_write_file(u32 size, const char *name, u8 *buff, u8 dir, u32 in_dir) {
   }
 }
 
-u8 fs_list(u32 dir, char *found, u8 *modes, u8 max_entries) {
+u8 fs_list(u32 dir, char **found, u8 **modes) {
   u32 cluster = (dir == 0) ? fs.RootClus : dir;
+  u64 cap = 64;
+  *found = (char *)kmalloc(cap * 11);
+  *modes = (u8 *)kmalloc(cap);
   u8 foundCnt = 0;
-  while (cluster > 1 && cluster < 0x0FFFFFF8 && foundCnt < max_entries) {
-    for (u32 i = 0; i < fs.SecPerClus && foundCnt < max_entries; i++) {
+  while (cluster > 1 && cluster < 0x0FFFFFF8) {
+    for (u32 i = 0; i < fs.SecPerClus; i++) {
       read_sector(clus_to_sec(cluster) + i, buff);
-      for (u8 x = 0; x < 16 && foundCnt < max_entries; x++) {
+      for (u8 x = 0; x < 16; x++) {
         DirEntry *entry = (DirEntry *)(buff + x * 32);
         if (entry->Attr & 0x08 || entry->Name[0] == 0x00 ||
             entry->Name[0] == 0xE5 || entry->Attr == 0x0F)
           continue;
         for (u8 j = 0; j < 11; j++) {
-          found[foundCnt * 11 + j] = entry->Name[j];
+          (*found)[foundCnt * 11 + j] = entry->Name[j];
         }
-        modes[foundCnt] = entry->Attr;
+        (*modes)[foundCnt] = entry->Attr;
         foundCnt++;
+        if (foundCnt + 2 == cap) {
+          u64 new_cap = cap * 2;
+          char *new_found = (char *)kmalloc(new_cap * 11);
+          u8 *new_modes = (u8 *)kmalloc(new_cap);
+
+          for (u64 i = 0; i < cap * 11; i++) {
+            new_found[i] = (*found)[i];
+          }
+
+          for (u64 i = 0; i < cap; i++) {
+            new_modes[i] = (*modes)[i];
+          }
+
+          cap = new_cap;
+          kfree(*found);
+          kfree(*modes);
+          *found = new_found;
+          *modes = new_modes;
+        }
       }
     }
     cluster = get_next_clus(cluster);

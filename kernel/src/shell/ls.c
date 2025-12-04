@@ -1,9 +1,9 @@
 #include "shell.h"
 
 void cmd_ls(char *args) {
-  char buffer[64 * 12];
-  u8 modes[64];
-  u8 count = fs_list(current_dir, buffer, modes, 64);
+  char *buffer;
+  u8 *modes;
+  u8 count = fs_list(current_dir, &buffer, &modes);
   char str[11];
   for (u8 i = 0; i < count; i++) {
     for (u8 x = 0; x < 11; x++) {
@@ -20,5 +20,8 @@ void cmd_ls(char *args) {
     set_color(0x00FFFFFF, 0x00000000);
     printc(' ');
   }
+
+  kfree(buffer);
+  kfree(modes);
   printc('\n');
 }

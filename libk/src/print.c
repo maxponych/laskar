@@ -71,12 +71,13 @@ void fillc16x16(u16 x, u16 y, u32 color) {
   u64 char_x = x * 16;
   u64 char_y = y * 16;
 
-  for (u8 row = 0; row < 16; row++) {
-    for (u8 col = 0; col < 16; col++) {
+  for (u8 row = 1; row < 15; row++) {
+    for (u8 col = 1; col < 15; col++) {
       vbe->framebuffer[(char_y + row) * vbe->pitch + (char_x + col)] = color;
     }
   }
 }
+
 void fillc8x8(u16 x, u16 y, u32 color) {
   if (x >= vbe->width / 8 || y >= vbe->height / 8)
     return;
@@ -159,6 +160,13 @@ void printc(char c) {
     scroll_up();
     pos_y = max_rows - 1;
   }
+}
+
+void printlncount(const char *str, u64 count) {
+  for (u64 i = 0; i <= count; i++) {
+    printc(str[i]);
+  }
+  printc('\n');
 }
 
 void print(const char *str) {

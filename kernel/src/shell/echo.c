@@ -1,56 +1,54 @@
 #include "shell.h"
 
-void parse(char *args, char *content, char *name, u8 *write, u32 *bytes) {
+void parse(char *args, char **content_l, char **content_r, char **name,
+           u8 *write) {
+  *write = 0;
+  *content_l = 0;
+  *content_r = 0;
+  char *p = args;
+
   u8 quote = 0;
-  u16 contentCnt = 0;
-  while (*args) {
-    if (*args == '"' && !quote) {
+  while (*p) {
+    if (*p == '"' && !quote) {
       quote = 1;
-      args++;
-      continue;
-    } else if (*args == '"' && quote) {
+      *content_l = p + 1;
+    } else if (*p == '"' && quote) {
       quote = 0;
-      args++;
-      continue;
+      *content_r = p;
     }
-    if (quote) {
-      content[contentCnt++] = *args;
-    }
-    if (*args == '>' && !quote) {
+
+    if (*p == '>' && !quote) {
       *write = 1;
-      args++;
-      while (*args == ' ')
-        args++;
+      p++;
+      while (*p == ' ')
+        p++;
+      *name = p;
       break;
     }
-    args++;
+    p++;
   }
 
-  *bytes = contentCnt;
-
-  u8 i = 0;
-  while (i < 12 && *args && *args != ' ' && *args != '\n' && *args != '\r') {
-    name[i++] = *args++;
+  if (*name) {
+    char *n = *name;
+    while (*n && *n != ' ' && *n != '\n' && *n != '\r')
+      n++;
+    *n = '\0';
   }
-  name[i] = '\0';
-
-  content[contentCnt] = '\0';
 }
 
 void cmd_echo(char *args) {
-  static char content[128];
-  static char name[13];
-  u8 write = 0;
-  u32 bytes = 0;
+  char *content_l, *content_r, *name;
+  u8 write;
 
-  parse(args, content, name, &write, &bytes);
+  parse(args, &content_l, &content_r, &name, &write);
+  u32 bytes = content_r - content_l;
 
-  char fatName[11];
-  str_to_fat83(name, fatName);
-
-  if (write) {
-    fs_write_file(bytes, fatName, (u8 *)content, 0, current_dir);
-  } else {
-    println(content);
+  if (!write) {
+    printlncount(content_l, bytes);
+    return;
   }
+
+  static char fatName[11];
+  str_to_fat83(name, fatName);
+  fs_write_file(bytes, fatName, (u8 *)content_l, 0, current_dir);
 }

@@ -14,6 +14,8 @@ RM         := rm -f
 # If you want to use release build for the bootloader set BUILD=release
 BUILD      ?= release
 
+OVMF_CODE ?= "path/to/ovmf_code.fd"
+
 # === Directories ===
 BOOT_DIR        := bootloader
 KERNEL_SRC_DIR  := kernel/src
