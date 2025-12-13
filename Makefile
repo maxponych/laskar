@@ -45,8 +45,8 @@ KERNEL_BIN  := kernel.bin
 BOOT_EFI    := $(BOOT_DIR)/target/x86_64-unknown-uefi/$(BUILD)/bootloader.efi
 
 # Image
-IMG         := os-uefi.img
-IMG_SIZE_MB := 64
+IMG         := os.img
+IMG_SIZE_MB := 256
 SECTOR_SIZE := 512
 
 # === Build Flags ===

@@ -18,10 +18,13 @@ A basic but functional shell that parses and executes commands.
 - `cat` - read file contents
 - `cd` - change current working directory
 - `clear` - clear the screen
-- `echo` - output text to terminal. Supports redirection (`>`). Example: `echo "hello" > hello.txt`
+- `echo` - output text to terminal. Supports redirection (`>`, `>>`). Example: `echo "hello" > hello.txt`
+- `pwd` - print working directory
+- `stat` - print file metadata
 - `loadkeys` - change keyboard layout (dvorak/qwerty available)
 - `mkdir` - create a new directory
 - `free` - show memory statistic
+- `rm` - remove file/directory. *Note: directory **must** be empty*.
 - `snake` - play Snake!
 
 ## Current Limitations
@@ -29,7 +32,6 @@ A basic but functional shell that parses and executes commands.
 - Ring 0 only (no user space yet)
 - No scheduler
 - No hardware interrupts
-- Missing commands (e.g., `rm`)
 
 ## License
 

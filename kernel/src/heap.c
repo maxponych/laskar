@@ -3,24 +3,29 @@
 static FreeBlock *free_list = NULL;
 
 void heap_init() {
-  void *heap = alloc_pages(256);
+  void *heap = alloc_pages(PAGES_CNT);
+
+  if (heap == NULL) {
+    println("FATAL: Cannot allocate heap stack");
+    while (1) {
+      __asm__ volatile("hlt");
+    }
+  }
 
   free_list = (FreeBlock *)heap;
-  free_list->size = 256 * 4096 - sizeof(FreeBlock);
+  free_list->size = PAGES_CNT * 4096 - sizeof(FreeBlock);
   free_list->next = NULL;
 }
 
 void *kmalloc(u64 size) {
   FreeBlock *prev = NULL;
   FreeBlock *curr = free_list;
-
   size = (size + 7) & ~7;
 
   while (curr) {
-    if (curr->size > size) {
+    if (curr->size >= size + sizeof(FreeBlock)) {
       FreeBlock *new_block =
           (FreeBlock *)((u8 *)curr + sizeof(FreeBlock) + size);
-
       new_block->size = curr->size - sizeof(FreeBlock) - size;
       new_block->next = curr->next;
 
@@ -34,13 +39,12 @@ void *kmalloc(u64 size) {
       return (u8 *)curr + sizeof(FreeBlock);
     }
 
-    if (curr->size == size) {
+    if (curr->size >= size) {
       if (prev) {
         prev->next = curr->next;
       } else {
         free_list = curr->next;
       }
-
       return (u8 *)curr + sizeof(FreeBlock);
     }
 
@@ -52,29 +56,32 @@ void *kmalloc(u64 size) {
 }
 
 void kfree(void *ptr) {
-  FreeBlock *block = ptr - sizeof(FreeBlock);
+  if (ptr == NULL)
+    return;
+
+  FreeBlock *block = (FreeBlock *)((u8 *)ptr - sizeof(FreeBlock));
   FreeBlock *prev = NULL;
   FreeBlock *curr = free_list;
 
-  while (curr && curr < block) {
+  while (curr != NULL && curr < block) {
     prev = curr;
     curr = curr->next;
   }
 
   block->next = curr;
-  if (prev) {
+  if (prev != NULL) {
     prev->next = block;
   } else {
     free_list = block;
   }
 
-  if ((u8 *)curr &&
+  if (curr != NULL &&
       (u8 *)block + sizeof(FreeBlock) + block->size == (u8 *)curr) {
     block->size += sizeof(FreeBlock) + curr->size;
     block->next = curr->next;
   }
 
-  if ((u8 *)prev &&
+  if (prev != NULL &&
       (u8 *)prev + sizeof(FreeBlock) + prev->size == (u8 *)block) {
     prev->size += sizeof(FreeBlock) + block->size;
     prev->next = block->next;

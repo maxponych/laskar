@@ -78,12 +78,14 @@ void pmm_init(MemoryMap *mmap, u64 own_size) {
   for (u16 i = 0; i < mmap->entry_count; i++) {
     u64 start_addr = mmap->entries[i].base;
     u64 end_addr = start_addr + (mmap->entries[i].page_count * 4096);
-    u64 size = end_addr - start_addr;
 
-    u64 start_byte = (start_addr / 4096) / 8;
-    u8 start_bit = (start_addr / 4096) % 8;
-    u64 end_byte = (end_addr / 4096) / 8;
-    u8 end_bit = (end_addr / 4096) % 8;
+    u64 start_page = start_addr / 4096;
+    u64 end_page = (end_addr - 1) / 4096;
+
+    u64 start_byte = start_page / 8;
+    u8 start_bit = start_page % 8;
+    u64 end_byte = end_page / 8;
+    u8 end_bit = end_page % 8;
 
     if (start_byte == end_byte) {
       for (u8 bit = start_bit; bit <= end_bit; bit++) {
@@ -111,6 +113,15 @@ void pmm_init(MemoryMap *mmap, u64 own_size) {
   u64 bitmap_start = (u64)bitmap / 4096;
   u64 bitmap_end = ((u64)bitmap + bitmap_size - 1) / 4096;
   mark_used(bitmap, bitmap_start, bitmap_end);
+
+  u64 current_rsp;
+  __asm__ volatile("mov %%rsp, %0" : "=r"(current_rsp));
+  u64 stack_size = 64 * 1024;
+  u64 stack_bottom = (current_rsp - stack_size) & ~0xFFF;
+  u64 stack_top = (current_rsp + 4096) & ~0xFFF;
+  u64 stack_start_page = stack_bottom / 4096;
+  u64 stack_end_page = (stack_top - 1) / 4096;
+  mark_used(bitmap, stack_start_page, stack_end_page);
 
   u64 mem = bitmap_size * 8 * 4096;
 

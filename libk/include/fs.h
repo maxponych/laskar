@@ -2,6 +2,7 @@
 #include "heap.h"
 #include "pio.h"
 #include "print.h"
+#include "string.h"
 #include "types.h"
 
 typedef struct {
@@ -31,11 +32,49 @@ typedef struct {
   u32 FileSize;
 } DirEntry;
 
+typedef struct {
+  u8 used;
+  u32 size;
+  u8 attr;
+  u32 pos;
+  u32 *cluster_chain;
+  u32 chain_cap;
+  u32 cluster_count;
+  u32 entry_cluster;
+  u32 entry_offset;
+  char name[11];
+} File;
+
+#define MAX_FILES 256
+
+typedef struct {
+  char name[13];
+  u32 size;
+  u8 attr;
+} Stat;
+
+typedef enum {
+  END,
+  CUR,
+  SET,
+} Whence;
+
+typedef enum {
+  CREATE = 0x01,
+  TRUNCATE = 0x02,
+  APPEND = 0x04,
+  EXCLUSIVE = 0x08,
+  // TEMPORARY = 0x10, -- might be added later, but for now it is not supported
+} OpenFlags;
+
 void fs_init(void);
-u64 get_clus_size();
-u32 get_next_clus(u32 clus);
-void read_clus(u32 clus, u8 *buff);
-DirEntry *fs_find_file(const char *filename, u32 dir);
-u8 fs_list(u32 dir, char **found, u8 **modes);
-void fs_read_file(u32 cluster, u32 size, u8 *buff);
-void fs_write_file(u32 size, const char *name, u8 *buff, u8 dir, u32 in_dir);
+u32 fs_open(char *path, OpenFlags flags);
+void fs_close(u32 fd);
+Stat *fs_stat(char *path);
+u32 fs_read(u32 fd, void *buffer, u32 cnt);
+u32 fs_write(u32 fd, void *buffer, u32 cnt);
+u32 fs_seek(u32 fd, i32 offset, Whence whence);
+i8 fs_mkdir(char *path);
+Stat *fs_readdir(u32 fd);
+i8 fs_remove(char *path);
+i8 fs_rmdir(char *path);

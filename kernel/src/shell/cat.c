@@ -1,31 +1,55 @@
 #include "shell.h"
 
 void cmd_cat(char *args) {
-  static char fatName[11];
-  str_to_fat83(args, fatName);
-
-  DirEntry *file = fs_find_file(fatName, current_dir);
-  if (!file) {
-    println("File not found");
+  char *path = normalize_path(args);
+  u32 file = fs_open(path, 0x00);
+  if (file == (u32)-1) {
+    println("No such file or directory");
     return;
   }
 
-  u64 clus_size = get_clus_size();
-  u8 *buff = (u8 *)kmalloc(clus_size);
-  u32 size = file->FileSize;
-  u32 clus = file->FstClusLo | (file->FstClusHi << 16);
-  while (clus > 1 && clus < 0x0FFFFFF8 && size > 0) {
-    read_clus(clus, buff);
-
-    u32 bytes_to_print = (size > clus_size) ? clus_size : size;
-    for (u32 i = 0; i < bytes_to_print; i++) {
-      printc(buff[i]);
-    }
-    size -= bytes_to_print;
-
-    clus = get_next_clus(clus);
+  Stat *stat = fs_stat(path);
+  kfree(path);
+  if (stat == NULL) {
+    println("Can't read file metadata");
+    fs_close(file);
+    return;
+  }
+  if (stat->attr & 0x10) {
+    print(stat->name);
+    print(": ");
+    println("Is a directory");
+    fs_close(file);
+    return;
   }
 
-  kfree(buff);
+  static char buff[4096];
+  u32 end = (stat->size + 4095) / 4096;
+
+  u32 read = 0;
+
+  for (u32 i = 0; i <= end; i++) {
+    u32 was_read = 0;
+    if (i == end) {
+      was_read = fs_read(file, buff, stat->size % 4096);
+      for (u32 i = 0; i < was_read; i++) {
+        printc(buff[i]);
+      }
+    } else {
+      was_read = fs_read(file, buff, 4096);
+      for (u32 i = 0; i < was_read; i++) {
+        printc(buff[i]);
+      }
+    }
+
+    if (was_read == (u32)-1) {
+      println("An error occured!");
+      fs_close(file);
+      return;
+    }
+    read += was_read;
+  }
+
+  fs_close(file);
   printc('\n');
 }

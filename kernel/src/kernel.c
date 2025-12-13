@@ -1,5 +1,4 @@
 #include "kernel.h"
-#include "print.h"
 
 void green_ok(void) {
   set_color(0x0000FF00, 0x00000000);
@@ -46,6 +45,8 @@ void kmain(BootArgs *boot) {
 
   greet();
 
+  init_cwd();
+
   char *comm_buff = kmalloc(128);
   u32 comm_cap = 128;
   u32 comm_buff_cnt = 0;
@@ -76,7 +77,7 @@ void kmain(BootArgs *boot) {
         }
         continue;
       }
-      if (comm_buff_cnt + 4 >= comm_cap) {
+      if (comm_buff_cnt + 2 >= comm_cap) {
         u32 new_cap = comm_cap * 2;
         char *new_buff = kmalloc(new_cap);
 

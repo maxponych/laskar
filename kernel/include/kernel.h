@@ -2,6 +2,7 @@
 #include "heap.h"
 #include "keyboard.h"
 #include "layout.h"
+#include "pmm.h"
 #include "print.h"
 #include "shell.h"
 #include "types.h"

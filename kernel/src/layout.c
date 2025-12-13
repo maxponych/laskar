@@ -1,6 +1,6 @@
 #include "layout.h"
 
-layout a_layout = qwerty;
+layout a_layout = dvorak;
 u8 shift = 0;
 u8 caps = 0;
 
