@@ -4,7 +4,9 @@ char *cwd = NULL;
 
 void init_cwd() {
   cwd = kmalloc(2);
-  str_cpy(cwd, "/");
+  if (cwd != NULL) {
+    str_cpy(cwd, "/");
+  }
 }
 
 char *normalize_path(const char *path) {
@@ -22,6 +24,7 @@ char *normalize_path(const char *path) {
     if (temp[str_len(temp) - 1] != '/')
       str_cat(temp, "/");
     str_cat(temp, path);
+
   } else {
     str_cpy(temp, path);
   }
@@ -34,6 +37,7 @@ char *normalize_path(const char *path) {
     } else if (str_cmp(token, "..") == 0) {
       if (count > 0)
         count--;
+
     } else {
       if (count >= token_cap) {
         token_cap *= 2;
@@ -55,6 +59,7 @@ char *normalize_path(const char *path) {
   char *result = kmalloc(result_len + 1);
   if (count == 0) {
     str_cpy(result, "/");
+
   } else {
     result[0] = '\0';
     for (u32 i = 0; i < count; i++) {
@@ -71,7 +76,6 @@ void cmd_pwd(char *args) { println(cwd); }
 
 void cmd_cd(char *args) {
   char *new_path = normalize_path(args);
-
   Stat *entry = fs_stat(new_path);
   if (entry == NULL) {
     println("No such directory");
@@ -84,10 +88,6 @@ void cmd_cd(char *args) {
     return;
   }
 
-  if (str_len(new_path) + 1 > str_len(cwd) + 1) {
-    kfree(cwd);
-    cwd = kmalloc(str_len(new_path) + 1);
-  }
-  str_cpy(cwd, new_path);
-  kfree(new_path);
+  kfree(cwd);
+  cwd = new_path;
 }

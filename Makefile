@@ -20,6 +20,7 @@ OVMF_CODE ?= "path/to/ovmf_code.fd"
 BOOT_DIR        := bootloader
 KERNEL_SRC_DIR  := kernel/src
 KERNEL_INC_DIR  := kernel/include
+KERNEL_STUBS_DIR := kernel/src/stubs
 LIBK_SRC_DIR    := libk/src
 LIBK_INC_DIR    := libk/include
 DRIVERS_SRC_DIR := drivers/src
@@ -28,10 +29,12 @@ OUT_DIR         := out
 
 # === Source files ===
 KERNEL_SRC  := $(shell find $(KERNEL_SRC_DIR) -name '*.c')
+KERNEL_ASM  := $(wildcard $(KERNEL_STUBS_DIR)/*.asm)
 LIBK_SRC    := $(wildcard $(LIBK_SRC_DIR)/*.c)
 DRIVERS_SRC := $(wildcard $(DRIVERS_SRC_DIR)/*.c)
 
 KERNEL_OBJ  := $(patsubst %.c,%.o,$(KERNEL_SRC))
+KERNEL_ASM_OBJ := $(patsubst %.asm,%.o,$(KERNEL_ASM))
 LIBK_OBJ    := $(patsubst %.c,%.o,$(LIBK_SRC))
 DRIVERS_OBJ := $(patsubst %.c,%.o,$(DRIVERS_SRC))
 
@@ -56,6 +59,9 @@ COMMON_FLAGS := -ffreestanding -m64 -mno-red-zone \
 
 CFLAGS := $(COMMON_FLAGS) -I$(KERNEL_INC_DIR) -I$(LIBK_INC_DIR) -I$(DRIVERS_INC_DIR)
 
+# NASM flags for 64-bit ELF object files
+NASMFLAGS := -f elf64
+
 # === Rules ===
 .PHONY: all clean start rebuild build-bootloader image mount-info
 
@@ -71,12 +77,16 @@ build-bootloader:
 %.o: %.c
 	$(GCC) $(CFLAGS) $< -o $@
 
+# --- ASM compilation rules ---
+$(KERNEL_STUBS_DIR)/%.o: $(KERNEL_STUBS_DIR)/%.asm
+	$(NASM) $(NASMFLAGS) $< -o $@
+
 $(LIBK): $(LIBK_OBJ) $(DRIVERS_OBJ)
 	$(AR) rcs $@ $^
 
 # --- Kernel link ---
-$(KERNEL_ELF): $(KERNEL_OBJ) $(LIBK)
-	$(LD) -T kernel.ld -o $@ $(KERNEL_OBJ) $(LIBK)
+$(KERNEL_ELF): $(KERNEL_OBJ) $(KERNEL_ASM_OBJ) $(LIBK)
+	$(LD) -T kernel.ld -o $@ $(KERNEL_OBJ) $(KERNEL_ASM_OBJ) $(LIBK)
 
 $(KERNEL_BIN): $(KERNEL_ELF)
 	$(OBJCOPY) -O binary $< $@
@@ -114,7 +124,7 @@ endif
 rebuild: clean all
 
 clean:
-	$(RM) $(IMG) $(KERNEL_BIN) $(KERNEL_ELF) $(LIBK) $(LIBK_OBJ) $(KERNEL_OBJ) $(DRIVERS_OBJ)
+	$(RM) $(IMG) $(KERNEL_BIN) $(KERNEL_ELF) $(LIBK) $(LIBK_OBJ) $(KERNEL_OBJ) $(KERNEL_ASM_OBJ) $(DRIVERS_OBJ)
 	# Don't wipe cargo artifacts; if you want, run 'cargo clean' in bootloader/
 	@echo "cleaned C artifacts and image. To remove Rust artifacts run: (cd $(BOOT_DIR) && cargo clean)"
 

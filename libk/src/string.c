@@ -1,26 +1,32 @@
 #include "string.h"
 
-char *str_cpy(char *dest, const char *src) {
-  char *orig_dest = dest;
-  while ((*dest++ = *src++)) {
+u32 str_len(const char *str) {
+  u32 len = 0;
+  while (str[len] != '\0') {
+    len++;
   }
-  return orig_dest;
+  return len;
+}
+
+char *str_cpy(char *dest, const char *src) {
+  u32 i = 0;
+  while (src[i] != '\0') {
+    dest[i] = src[i];
+    i++;
+  }
+  dest[i] = '\0';
+  return dest;
 }
 
 char *str_cat(char *dest, const char *src) {
-  char *orig_dest = dest;
-  while (*dest)
-    dest++;
-  while ((*dest++ = *src++)) {
+  u32 dest_len = str_len(dest);
+  u32 i = 0;
+  while (src[i] != '\0') {
+    dest[dest_len + i] = src[i];
+    i++;
   }
-  return orig_dest;
-}
-
-u32 str_len(const char *str) {
-  u32 len = 0;
-  while (str[len])
-    len++;
-  return len;
+  dest[dest_len + i] = '\0';
+  return dest;
 }
 
 i32 str_cmp(const char *s1, const char *s2) {

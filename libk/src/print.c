@@ -181,15 +181,32 @@ void println(const char *str) {
   printc('\n');
 }
 
-void printx(u8 val) {
+void printx_u8(u8 val) {
   const char *hex = "0123456789ABCDEF";
-  printc(hex[(val >> 4) & 0xF]);
-  printc(hex[val & 0xF]);
+  for (int i = 1; i >= 0; i--) {
+    printc(hex[(val >> (i * 4)) & 0xF]);
+  }
 }
 
-void printxln(u8 val) {
-  printx(val);
-  printc('\n');
+void printx_u16(u16 val) {
+  const char *hex = "0123456789ABCDEF";
+  for (int i = 3; i >= 0; i--) {
+    printc(hex[(val >> (i * 4)) & 0xF]);
+  }
+}
+
+void printx_u32(u32 val) {
+  const char *hex = "0123456789ABCDEF";
+  for (int i = 7; i >= 0; i--) {
+    printc(hex[(val >> (i * 4)) & 0xF]);
+  }
+}
+
+void printx_u64(u64 val) {
+  const char *hex = "0123456789ABCDEF";
+  for (int i = 15; i >= 0; i--) {
+    printc(hex[(val >> (i * 4)) & 0xF]);
+  }
 }
 
 void printnum(u64 n) {

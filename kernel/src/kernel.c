@@ -1,4 +1,6 @@
 #include "kernel.h"
+#include "layout.h"
+#include "print.h"
 
 void green_ok(void) {
   set_color(0x0000FF00, 0x00000000);
@@ -29,69 +31,78 @@ void print_prompt() {
 }
 
 void kmain(BootArgs *boot) {
+  __asm__ volatile("cli");
   init_screen(&boot->vbe);
   clear_screen();
   println("Laskar booting...");
 
   pmm_init(&boot->mem, boot->own_size);
   heap_init();
+  gdt_init();
   print_ok("Initialising Memory");
 
   fs_init();
   print_ok("Initialising Filesystem");
 
+  idt_init();
+  pic_init();
+  print_ok("Initialising Interrupts");
+
   kb_init();
   print_ok("Initialising Keyboard driver");
 
-  greet();
-
   init_cwd();
+  print_ok("Initialising Shell");
+  greet();
+  __asm__ volatile("sti");
 
-  char *comm_buff = kmalloc(128);
   u32 comm_cap = 128;
+  char *comm_buff = kmalloc(comm_cap);
   u32 comm_buff_cnt = 0;
   print_prompt();
   while (1) {
-    u8 in = kb_read();
-    u8 c = translate(in);
-    if (c > 0) {
-      if (c == '\n') {
-        if (comm_buff_cnt == 0) {
-          printc('\n');
+    u8 key = kb_read();
+    if (key > 0) {
+      char c = translate(key);
+      if (c > 0) {
+        if (c == '\n') {
+          if (comm_buff_cnt == 0) {
+            printc('\n');
+            print_prompt();
+            continue;
+          }
+          printc(c);
+          comm_buff[comm_buff_cnt] = '\0';
+
+          cmd_parse(comm_buff, &comm_buff_cnt);
+
+          comm_buff_cnt = 0;
           print_prompt();
           continue;
         }
+        if (c == '\b') {
+          if (comm_buff_cnt > 0) {
+            comm_buff[comm_buff_cnt--] = 0;
+            printc(c);
+          }
+          continue;
+        }
+        if (comm_buff_cnt + 2 >= comm_cap) {
+          u32 new_cap = comm_cap * 2;
+          char *new_buff = kmalloc(new_cap);
+
+          for (u32 i = 0; i < comm_cap; i++) {
+            new_buff[i] = comm_buff[i];
+          }
+
+          kfree(comm_buff);
+          comm_buff = new_buff;
+          comm_cap = new_cap;
+        }
+
+        comm_buff[comm_buff_cnt++] = c;
         printc(c);
-        comm_buff[comm_buff_cnt] = '\0';
-
-        cmd_parse(comm_buff, &comm_buff_cnt);
-
-        comm_buff_cnt = 0;
-        print_prompt();
-        continue;
       }
-      if (c == '\b') {
-        if (comm_buff_cnt > 0) {
-          comm_buff[comm_buff_cnt--] = 0;
-          printc(c);
-        }
-        continue;
-      }
-      if (comm_buff_cnt + 2 >= comm_cap) {
-        u32 new_cap = comm_cap * 2;
-        char *new_buff = kmalloc(new_cap);
-
-        for (u32 i = 0; i < comm_cap; i++) {
-          new_buff[i] = comm_buff[i];
-        }
-
-        kfree(comm_buff);
-        comm_buff = new_buff;
-        comm_cap = new_cap;
-      }
-
-      comm_buff[comm_buff_cnt++] = c;
-      printc(c);
     }
   }
 }

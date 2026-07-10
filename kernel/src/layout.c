@@ -16,30 +16,35 @@ void set_layout(LayoutType layout) {
   return;
 }
 
-char translate(u8 scancode) {
-  if (scancode == 0x2A || scancode == 0x36) {
-    shift = 1;
+u8 to_keycode(u8 scancode) {
+  u8 released = scancode & 0x80;
+  u8 code = scancode & 0x7F;
+
+  switch (code) {
+  case 0x2A:
+  case 0x36:
+    shift = !released;
     return 0;
-  }
-  if (scancode == 0xAA || scancode == 0xB6) {
-    shift = 0;
-    return 0;
-  }
-  if (scancode == 0x3A) {
-    caps = !caps;
+
+  case 0x3A:
+    if (!released)
+      caps ^= 1;
     return 0;
   }
 
-  if (scancode & 0x80) {
+  if (released)
     return 0;
-  }
 
+  return code;
+}
+
+char translate(u8 keycode) {
   if (shift && caps) {
-    return a_layout(scancode, 0);
+    return a_layout(keycode, 0);
   } else if (shift || caps) {
-    return a_layout(scancode, 1);
+    return a_layout(keycode, 1);
   } else {
-    return a_layout(scancode, 0);
+    return a_layout(keycode, 0);
   }
 }
 

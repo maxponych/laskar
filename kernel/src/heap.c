@@ -22,6 +22,10 @@ void *kmalloc(u64 size) {
   FreeBlock *curr = free_list;
   size = (size + 7) & ~7;
 
+  if (size < 256) {
+    size = 256;
+  }
+
   while (curr) {
     if (curr->size >= size + sizeof(FreeBlock)) {
       FreeBlock *new_block =

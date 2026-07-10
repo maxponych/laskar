@@ -1,145 +1,87 @@
 #include "keyboard.h"
 
-void kb_init() {
-  u8 status = inb(0x64);
+static Ring buff = {0};
 
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
+void kb_init(void) {
+  u8 status;
 
+#define WAIT_INPUT_EMPTY()                                                     \
+  do {                                                                         \
+    status = inb(0x64);                                                        \
+  } while (status & 0x02)
+
+#define WAIT_OUTPUT_FULL()                                                     \
+  do {                                                                         \
+    status = inb(0x64);                                                        \
+  } while (!(status & 0x01))
+
+  WAIT_INPUT_EMPTY();
   outb(0x64, 0xAD);
 
-  do {
+  while (inb(0x64) & 0x01)
     inb(0x60);
-    status = inb(0x64);
-  } while (status & 0x01);
 
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
-
+  WAIT_INPUT_EMPTY();
   outb(0x64, 0x20);
+  WAIT_OUTPUT_FULL();
+  u8 cmd = inb(0x60);
 
-  do {
-    status = inb(0x64);
-  } while (!(status & 0x01));
+  cmd |= 0x01;
+  cmd &= ~0x02;
+  cmd &= ~0x20;
 
-  u8 old_comm = inb(0x60);
-
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
-
+  WAIT_INPUT_EMPTY();
   outb(0x64, 0x60);
+  WAIT_INPUT_EMPTY();
+  outb(0x60, cmd);
 
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
-
-  u8 new_comm = old_comm & 0x5E;
-  outb(0x60, new_comm);
-
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
-
+  WAIT_INPUT_EMPTY();
   outb(0x64, 0xAE);
 
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
-
+  WAIT_INPUT_EMPTY();
   outb(0x60, 0xFF);
 
-  do {
-    status = inb(0x64);
-  } while (!(status & 0x01));
-
-  u8 ack = inb(0x60);
-
-  if (ack != 0xFA) {
-    if (ack == 0xFE) {
-      outb(0x60, 0xFF);
-    } else {
-      return;
-    }
-  }
-
-  do {
-    status = inb(0x64);
-  } while (!(status & 0x01));
-
-  ack = inb(0x60);
-
-  if (ack != 0xAA) {
+  WAIT_OUTPUT_FULL();
+  if (inb(0x60) != 0xFA)
     return;
-  }
 
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
+  WAIT_OUTPUT_FULL();
+  if (inb(0x60) != 0xAA)
+    return;
 
+  WAIT_INPUT_EMPTY();
   outb(0x60, 0xF0);
-
-  do {
-    status = inb(0x64);
-  } while (!(status & 0x01));
-
-  ack = inb(0x60);
-
-  if (ack != 0xFA) {
+  WAIT_OUTPUT_FULL();
+  if (inb(0x60) != 0xFA)
     return;
-  }
 
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
-
+  WAIT_INPUT_EMPTY();
   outb(0x60, 0x02);
-
-  do {
-    status = inb(0x64);
-  } while (!(status & 0x01));
-
-  ack = inb(0x60);
-
-  if (ack != 0xFA) {
+  WAIT_OUTPUT_FULL();
+  if (inb(0x60) != 0xFA)
     return;
-  }
 
-  do {
-    status = inb(0x64);
-  } while (status & 0x02);
-
+  WAIT_INPUT_EMPTY();
   outb(0x60, 0xF4);
-
-  do {
-    status = inb(0x64);
-  } while (!(status & 0x01));
-
-  ack = inb(0x60);
-
-  if (ack != 0xFA) {
+  WAIT_OUTPUT_FULL();
+  if (inb(0x60) != 0xFA)
     return;
-  }
-}
-
-void kb_listen(u8 *buff, u16 *bytes) {
-  u8 status = inb(0x64);
-  while (1) {
-    status = inb(0x64);
-    if (status & 0x01) {
-      buff[*bytes] = inb(0x60);
-      (*bytes)++;
-    }
-  }
 }
 
 u8 kb_read() {
-  u8 status = inb(0x64);
-  u8 res = 0;
-  if (status & 0x01) {
-    res = inb(0x60);
+  if (buff.tail == buff.head) {
+    return 0x00;
   }
-  return res;
+  return buff.buff[buff.tail++];
+}
+
+void kb_handler() {
+  u8 sc = inb(0x60);
+  u8 c = to_keycode(sc);
+
+  u8 next = buff.head + 1;
+  if (next != buff.tail && c != 0x00) {
+    buff.buff[buff.head] = c;
+    buff.head = next;
+  }
 }

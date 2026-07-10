@@ -1,5 +1,7 @@
 #include "fs.h"
+#include "gdt.h"
 #include "heap.h"
+#include "idt.h"
 #include "keyboard.h"
 #include "layout.h"
 #include "pmm.h"
